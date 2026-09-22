@@ -9,6 +9,11 @@ class Database:
     """Подключение к базе данных."""
 
     def __init__(self, database_url: str) -> None:
+        database_url = database_url.replace(
+            "postgres://",
+            "postgresql+asyncpg://",
+            1,
+        )
         self.engine = create_async_engine(database_url)
         self.session_factory = async_sessionmaker(
             self.engine,
