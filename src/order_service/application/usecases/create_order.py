@@ -1,0 +1,63 @@
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
+
+from order_service.application.ports.catalog import CatalogClient
+from order_service.application.ports.uow import UnitOfWork
+from order_service.domain.entities import Order, OrderStatus
+from order_service.domain.exceptions import InvalidOrderError
+
+
+class CreateOrder:
+    """Сценарий создания заказа."""
+
+    def __init__(
+        self,
+        uow: UnitOfWork,
+        catalog: CatalogClient,
+    ) -> None:
+        self._uow = uow
+        self._catalog = catalog
+
+    async def execute(
+        self,
+        user_id: str,
+        quantity: int,
+        item_id: UUID,
+        idempotency_key: UUID,
+    ) -> Order:
+        """Создать заказ."""
+
+        if quantity <= 0:
+            raise InvalidOrderError("Количество должно быть больше нуля.")
+
+        async with self._uow() as uow:
+            existing_order = await uow.orders.get_by_idempotency_key(
+                idempotency_key,
+            )
+
+        if existing_order is not None:
+            return existing_order
+
+        item = await self._catalog.get_item(item_id)
+
+        if item.available_qty < quantity:
+            raise InvalidOrderError("Недостаточно товара на складе.")
+
+        now = datetime.now(UTC)
+
+        order = Order(
+            id=uuid4(),
+            user_id=user_id,
+            quantity=quantity,
+            item_id=item_id,
+            status=OrderStatus.NEW,
+            idempotency_key=idempotency_key,
+            created_at=now,
+            updated_at=now,
+        )
+
+        async with self._uow() as uow:
+            await uow.orders.add(order)
+            await uow.commit()
+
+        return order
