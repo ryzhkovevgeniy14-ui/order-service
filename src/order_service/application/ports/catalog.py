@@ -3,6 +3,14 @@ from typing import Protocol
 from uuid import UUID
 
 
+class CatalogItemNotFoundError(Exception):
+    """Товар не найден в каталоге."""
+
+
+class CatalogServiceError(Exception):
+    """Ошибка при обращении к Catalog Service."""
+
+
 @dataclass(frozen=True)
 class CatalogItem:
     """Данные товара, необходимые Order Service."""

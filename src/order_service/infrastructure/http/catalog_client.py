@@ -3,7 +3,11 @@ from uuid import UUID
 
 import httpx
 
-from order_service.application.ports.catalog import CatalogItem
+from order_service.application.ports.catalog import (
+    CatalogItem,
+    CatalogItemNotFoundError,
+    CatalogServiceError,
+)
 
 
 class HttpCatalogClient:
@@ -30,9 +34,23 @@ class HttpCatalogClient:
             url,
             headers={"X-API-Key": self._api_key},
         )
-        response.raise_for_status()
 
-        return CatalogItem(**response.json())
+        if response.status_code == 404:
+            raise CatalogItemNotFoundError("Товар не найден в каталоге.")
+
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise CatalogServiceError(
+                "Ошибка при обращении к Catalog Service.",
+            ) from exc
+
+        data = response.json()
+
+        return CatalogItem(
+            item_id=UUID(data["id"]),
+            available_qty=data["available_qty"],
+        )
 
     async def close(self) -> None:
         """Закрыть HTTP-клиент."""
