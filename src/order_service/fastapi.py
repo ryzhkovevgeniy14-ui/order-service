@@ -1,7 +1,13 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
+from order_service.application.ports.catalog import CatalogServiceError
+from order_service.domain.exceptions import (
+    InvalidOrderError,
+    OrderNotFoundError,
+)
 from order_service.infrastructure.http.catalog_client import HttpCatalogClient
 from order_service.infrastructure.persistence.database import Database
 from order_service.presentation.api.routes.orders import router as orders_router
@@ -28,6 +34,42 @@ async def lifespan(app: FastAPI):
         await database.dispose()
 
 
+async def invalid_order_handler(
+    request: Request,
+    exc: InvalidOrderError,
+) -> JSONResponse:
+    """Обработать ошибку валидации заказа."""
+
+    return JSONResponse(
+        status_code=400,
+        content={"detail": str(exc)},
+    )
+
+
+async def order_not_found_handler(
+    request: Request,
+    exc: OrderNotFoundError,
+) -> JSONResponse:
+    """Обработать отсутствие заказа."""
+
+    return JSONResponse(
+        status_code=404,
+        content={"detail": str(exc)},
+    )
+
+
+async def catalog_service_error_handler(
+    request: Request,
+    exc: CatalogServiceError,
+) -> JSONResponse:
+    """Обработать ошибку Catalog Service."""
+
+    return JSONResponse(
+        status_code=502,
+        content={"detail": str(exc)},
+    )
+
+
 def create_app() -> FastAPI:
     """Создать приложение FastAPI."""
 
@@ -37,5 +79,12 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(orders_router)
+
+    app.add_exception_handler(InvalidOrderError, invalid_order_handler)
+    app.add_exception_handler(OrderNotFoundError, order_not_found_handler)
+    app.add_exception_handler(
+        CatalogServiceError,
+        catalog_service_error_handler,
+    )
 
     return app
