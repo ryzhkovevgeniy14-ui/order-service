@@ -18,6 +18,6 @@ class Order:
     quantity: int
     item_id: UUID
     status: OrderStatus
-    idempotency_key: UUID
+    idempotency_key: str
     created_at: datetime
     updated_at: datetime

@@ -12,7 +12,7 @@ class OrderRepository(Protocol):
 
     async def get_by_idempotency_key(
         self,
-        idempotency_key: UUID,
+        idempotency_key: str,
     ) -> Order | None:
         """Получить заказ по ключу идемпотентности."""
 

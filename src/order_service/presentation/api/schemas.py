@@ -12,7 +12,7 @@ class CreateOrderRequest(BaseModel):
     user_id: str
     quantity: int = Field(gt=0)
     item_id: UUID
-    idempotency_key: UUID
+    idempotency_key: str
 
 
 class OrderResponse(BaseModel):

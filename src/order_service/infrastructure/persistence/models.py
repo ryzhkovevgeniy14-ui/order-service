@@ -20,8 +20,8 @@ class OrderModel(Base):
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     item_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
-    idempotency_key: Mapped[UUID] = mapped_column(
-        Uuid,
+    idempotency_key: Mapped[str] = mapped_column(
+        String,
         nullable=False,
         unique=True,
     )

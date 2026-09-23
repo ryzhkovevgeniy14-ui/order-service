@@ -23,7 +23,7 @@ class CreateOrder:
         user_id: str,
         quantity: int,
         item_id: UUID,
-        idempotency_key: UUID,
+        idempotency_key: str,
     ) -> Order:
         """Создать заказ."""
 
