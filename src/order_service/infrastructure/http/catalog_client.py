@@ -1,3 +1,4 @@
+from decimal import Decimal
 from urllib.parse import urljoin
 from uuid import UUID
 
@@ -50,6 +51,7 @@ class HttpCatalogClient:
         return CatalogItem(
             item_id=UUID(data["id"]),
             available_qty=data["available_qty"],
+            price=Decimal(data["price"]),
         )
 
     async def close(self) -> None:
