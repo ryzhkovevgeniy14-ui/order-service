@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     postgres_password: str
     capashino_base_url: str
     capashino_api_key: str
+    callback_url: str
 
     model_config = SettingsConfigDict(
         extra="ignore",
