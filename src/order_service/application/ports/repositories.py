@@ -18,3 +18,6 @@ class OrderRepository(Protocol):
 
     async def add(self, order: Order) -> None:
         """Добавить заказ."""
+
+    async def update(self, order: Order) -> None:
+        """Обновить заказ."""
