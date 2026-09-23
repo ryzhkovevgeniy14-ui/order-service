@@ -28,7 +28,7 @@ class SqlAlchemyOrderRepository:
 
     async def get_by_idempotency_key(
         self,
-        idempotency_key: UUID,
+        idempotency_key: str,
     ) -> Order | None:
         """Получить заказ по ключу идемпотентности."""
 
@@ -48,6 +48,11 @@ class SqlAlchemyOrderRepository:
         """Добавить заказ."""
 
         self._session.add(self._to_model(order))
+
+    async def update(self, order: Order) -> None:
+        """Обновить заказ."""
+
+        await self._session.merge(self._to_model(order))
 
     @staticmethod
     def _to_domain(model: OrderModel) -> Order:
