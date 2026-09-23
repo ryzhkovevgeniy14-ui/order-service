@@ -3,7 +3,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from order_service.application.ports.catalog import CatalogServiceError
+from order_service.application.ports.catalog import (
+    CatalogItemNotFoundError,
+    CatalogServiceError,
+)
 from order_service.domain.exceptions import (
     InvalidOrderError,
     OrderNotFoundError,
@@ -78,6 +81,14 @@ async def catalog_service_error_handler(
     )
 
 
+async def catalog_item_not_found_handler(
+    request: Request,
+    exc: CatalogItemNotFoundError,
+) -> JSONResponse:
+    """Обработать отсутствие товара в каталоге."""
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
 def create_app() -> FastAPI:
     """Создать приложение FastAPI."""
 
@@ -90,6 +101,10 @@ def create_app() -> FastAPI:
 
     app.add_exception_handler(InvalidOrderError, invalid_order_handler)
     app.add_exception_handler(OrderNotFoundError, order_not_found_handler)
+    app.add_exception_handler(
+        CatalogItemNotFoundError,
+        catalog_item_not_found_handler,
+    )
     app.add_exception_handler(
         CatalogServiceError,
         catalog_service_error_handler,
