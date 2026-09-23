@@ -1,8 +1,10 @@
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from order_service.application.ports.payments import PaymentStatus
 from order_service.domain.entities import OrderStatus
 
 
@@ -25,3 +27,13 @@ class OrderResponse(BaseModel):
     status: OrderStatus
     created_at: datetime
     updated_at: datetime
+
+
+class PaymentCallbackRequest(BaseModel):
+    """Данные callback от Payments Service."""
+
+    payment_id: UUID
+    order_id: UUID
+    status: PaymentStatus
+    amount: Decimal
+    error_message: str | None
