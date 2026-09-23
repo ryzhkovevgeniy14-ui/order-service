@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Protocol
 from uuid import UUID
 
@@ -17,6 +18,7 @@ class CatalogItem:
 
     item_id: UUID
     available_qty: int
+    price: Decimal
 
 
 class CatalogClient(Protocol):
