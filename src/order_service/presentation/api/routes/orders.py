@@ -2,15 +2,21 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 
+from order_service.application.ports.payments import PaymentCallback
 from order_service.application.usecases.create_order import CreateOrder
 from order_service.application.usecases.get_order import GetOrder
+from order_service.application.usecases.process_payment_callback import (
+    ProcessPaymentCallback,
+)
 from order_service.presentation.api.dependencies import (
     get_create_order,
     get_get_order,
+    get_process_payment_callback,
 )
 from order_service.presentation.api.schemas import (
     CreateOrderRequest,
     OrderResponse,
+    PaymentCallbackRequest,
 )
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
@@ -35,6 +41,26 @@ async def create_order(
     )
 
     return OrderResponse.model_validate(order, from_attributes=True)
+
+
+@router.post("/payment-callback")
+async def payment_callback(
+    request: PaymentCallbackRequest,
+    use_case: ProcessPaymentCallback = Depends(  # noqa: B008
+        get_process_payment_callback,
+    ),
+) -> None:
+    """Обработать callback от Payments Service."""
+
+    callback = PaymentCallback(
+        payment_id=request.payment_id,
+        order_id=request.order_id,
+        status=request.status,
+        amount=request.amount,
+        error_message=request.error_message,
+    )
+
+    await use_case.execute(callback)
 
 
 @router.get(
