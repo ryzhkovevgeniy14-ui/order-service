@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from order_service.application.ports.catalog import CatalogClient
+from order_service.application.ports.payments import PaymentClient, PaymentServiceError
 from order_service.application.ports.uow import UnitOfWork
 from order_service.domain.entities import Order, OrderStatus
 from order_service.domain.exceptions import InvalidOrderError
@@ -14,9 +15,13 @@ class CreateOrder:
         self,
         uow: UnitOfWork,
         catalog: CatalogClient,
+        payments: PaymentClient,
+        callback_url: str,
     ) -> None:
         self._uow = uow
         self._catalog = catalog
+        self._payments = payments
+        self._callback_url = callback_url
 
     async def execute(
         self,
@@ -55,6 +60,18 @@ class CreateOrder:
             created_at=now,
             updated_at=now,
         )
+
+        amount = item.price * quantity
+
+        try:
+            await self._payments.create_payment(
+                order_id=order.id,
+                amount=amount,
+                callback_url=self._callback_url,
+                idempotency_key=idempotency_key,
+            )
+        except PaymentServiceError:
+            order.status = OrderStatus.CANCELLED
 
         async with self._uow() as uow:
             await uow.orders.add(order)
