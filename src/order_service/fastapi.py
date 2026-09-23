@@ -9,6 +9,7 @@ from order_service.domain.exceptions import (
     OrderNotFoundError,
 )
 from order_service.infrastructure.http.catalog_client import HttpCatalogClient
+from order_service.infrastructure.http.payments_client import HttpPaymentsClient
 from order_service.infrastructure.persistence.database import Database
 from order_service.presentation.api.routes.orders import router as orders_router
 from order_service.settings import settings
@@ -24,13 +25,20 @@ async def lifespan(app: FastAPI):
         api_key=settings.capashino_api_key,
     )
 
+    payments = HttpPaymentsClient(
+        base_url=settings.capashino_base_url,
+        api_key=settings.capashino_api_key,
+    )
+
     app.state.database = database
     app.state.catalog = catalog
+    app.state.payments = payments
 
     try:
         yield
     finally:
         await catalog.close()
+        await payments.close()
         await database.dispose()
 
 
