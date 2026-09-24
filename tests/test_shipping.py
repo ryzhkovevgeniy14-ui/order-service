@@ -260,6 +260,7 @@ async def test_publish_outbox_event_keeps_event_unpublished_when_broker_fails(
 @pytest.mark.asyncio
 async def test_shipping_event_shipped_updates_order_status(
     uow,
+    notifications,
 ) -> None:
     """Проверить обработку события order.shipped."""
 
@@ -275,7 +276,10 @@ async def test_shipping_event_shipped_updates_order_status(
     )
     await uow.orders.add(order)
 
-    use_case = ProcessShippingEvent(uow=uow)
+    use_case = ProcessShippingEvent(
+        uow=uow,
+        notifications=notifications,
+    )
 
     await use_case.execute(
         order_id=order.id,
@@ -293,6 +297,7 @@ async def test_shipping_event_shipped_updates_order_status(
 @pytest.mark.asyncio
 async def test_shipping_event_cancelled_updates_order_status(
     uow,
+    notifications,
 ) -> None:
     """Проверить обработку события order.cancelled."""
 
@@ -308,7 +313,10 @@ async def test_shipping_event_cancelled_updates_order_status(
     )
     await uow.orders.add(order)
 
-    use_case = ProcessShippingEvent(uow=uow)
+    use_case = ProcessShippingEvent(
+        uow=uow,
+        notifications=notifications,
+    )
 
     await use_case.execute(
         order_id=order.id,
@@ -326,6 +334,7 @@ async def test_shipping_event_cancelled_updates_order_status(
 @pytest.mark.asyncio
 async def test_shipping_event_shipped_is_idempotent(
     uow,
+    notifications,
 ) -> None:
     """Проверить идемпотентность order.shipped."""
 
@@ -341,7 +350,10 @@ async def test_shipping_event_shipped_is_idempotent(
     )
     await uow.orders.add(order)
 
-    use_case = ProcessShippingEvent(uow=uow)
+    use_case = ProcessShippingEvent(
+        uow=uow,
+        notifications=notifications,
+    )
 
     await use_case.execute(
         order_id=order.id,
@@ -362,6 +374,7 @@ async def test_shipping_event_shipped_is_idempotent(
 @pytest.mark.asyncio
 async def test_shipping_event_cancelled_is_idempotent(
     uow,
+    notifications,
 ) -> None:
     """Проверить идемпотентность order.cancelled."""
 
@@ -377,7 +390,10 @@ async def test_shipping_event_cancelled_is_idempotent(
     )
     await uow.orders.add(order)
 
-    use_case = ProcessShippingEvent(uow=uow)
+    use_case = ProcessShippingEvent(
+        uow=uow,
+        notifications=notifications,
+    )
 
     await use_case.execute(
         order_id=order.id,
