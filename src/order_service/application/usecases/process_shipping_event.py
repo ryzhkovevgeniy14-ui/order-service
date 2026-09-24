@@ -1,7 +1,12 @@
+import logging
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from order_service.application.ports.inbox import InboxEvent
+from order_service.application.ports.notifications import (
+    NotificationClient,
+    NotificationServiceError,
+)
 from order_service.application.ports.uow import UnitOfWork
 from order_service.domain.entities import OrderStatus
 from order_service.domain.exceptions import (
@@ -9,17 +14,25 @@ from order_service.domain.exceptions import (
     OrderNotFoundError,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class ProcessShippingEvent:
     """Сценарий обработки события от Shipping Service."""
 
-    def __init__(self, uow: UnitOfWork) -> None:
+    def __init__(
+        self,
+        uow: UnitOfWork,
+        notifications: NotificationClient,
+    ) -> None:
         self._uow = uow
+        self._notifications = notifications
 
     async def execute(
         self,
         order_id: UUID,
         event_type: str,
+        reason: str | None = None,
     ) -> None:
         async with self._uow() as uow:
             if await uow.inbox.exists(order_id, event_type):
@@ -59,3 +72,22 @@ class ProcessShippingEvent:
                 ),
             )
             await uow.commit()
+
+        try:
+            if order.status == OrderStatus.SHIPPED:
+                await self._notifications.send_notification(
+                    message="Ваш заказ отправлен в доставку",
+                    reference_id=order.id,
+                    idempotency_key=f"{order.idempotency_key}:SHIPPED",
+                )
+            elif order.status == OrderStatus.CANCELLED:
+                await self._notifications.send_notification(
+                    message=f"Ваш заказ отменен. Причина: {reason}",
+                    reference_id=order.id,
+                    idempotency_key=f"{order.idempotency_key}:CANCELLED",
+                )
+        except NotificationServiceError:
+            logger.exception(
+                "Не удалось отправить уведомление об изменении статуса заказа.",
+                extra={"order_id": str(order.id)},
+            )
