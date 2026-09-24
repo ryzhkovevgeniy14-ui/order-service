@@ -1,7 +1,12 @@
 import json
+import logging
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from order_service.application.ports.notifications import (
+    NotificationClient,
+    NotificationServiceError,
+)
 from order_service.application.ports.outbox import OutboxEvent
 from order_service.application.ports.payments import (
     PaymentCallback,
@@ -14,12 +19,19 @@ from order_service.domain.exceptions import (
     OrderNotFoundError,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class ProcessPaymentCallback:
     """Сценарий обработки callback от Payments Service."""
 
-    def __init__(self, uow: UnitOfWork) -> None:
+    def __init__(
+        self,
+        uow: UnitOfWork,
+        notifications: NotificationClient,
+    ) -> None:
         self._uow = uow
+        self._notifications = notifications
 
     async def execute(self, callback: PaymentCallback) -> None:
         async with self._uow() as uow:
@@ -70,6 +82,25 @@ class ProcessPaymentCallback:
                 ),
             )
             await uow.commit()
+
+        try:
+            if order.status == OrderStatus.PAID:
+                await self._notifications.send_notification(
+                    message="Ваш заказ успешно оплачен и готов к отправке",
+                    reference_id=order.id,
+                    idempotency_key=f"{order.idempotency_key}:PAID",
+                )
+            elif order.status == OrderStatus.CANCELLED:
+                await self._notifications.send_notification(
+                    message="Ваш заказ отменен. Причина: Payment failed",
+                    reference_id=order.id,
+                    idempotency_key=f"{order.idempotency_key}:CANCELLED",
+                )
+        except NotificationServiceError:
+            logger.exception(
+                "Не удалось отправить уведомление об изменении статуса заказа.",
+                extra={"order_id": str(order.id)},
+            )
 
     @staticmethod
     def _create_outbox_event(
