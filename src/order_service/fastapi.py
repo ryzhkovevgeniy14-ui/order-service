@@ -20,6 +20,9 @@ from order_service.domain.exceptions import (
     OrderNotFoundError,
 )
 from order_service.infrastructure.http.catalog_client import HttpCatalogClient
+from order_service.infrastructure.http.notifications_client import (
+    HttpNotificationsClient,
+)
 from order_service.infrastructure.http.payments_client import HttpPaymentsClient
 from order_service.infrastructure.messaging.kafka_consumer import KafkaConsumer
 from order_service.infrastructure.messaging.kafka_producer import KafkaProducer
@@ -46,6 +49,11 @@ async def lifespan(app: FastAPI):
         api_key=settings.capashino_api_key,
     )
 
+    notifications = HttpNotificationsClient(
+        base_url=settings.capashino_base_url,
+        api_key=settings.capashino_api_key,
+    )
+
     producer = KafkaProducer(
         bootstrap_servers=settings.kafka_bootstrap_servers,
     )
@@ -58,7 +66,10 @@ async def lifespan(app: FastAPI):
         order_events_topic=settings.order_events_topic,
     )
 
-    process_shipping_event = ProcessShippingEvent(uow=uow)
+    process_shipping_event = ProcessShippingEvent(
+        uow=uow,
+        notifications=notifications,
+    )
 
     consumer = KafkaConsumer(
         bootstrap_servers=settings.kafka_bootstrap_servers,
@@ -79,6 +90,7 @@ async def lifespan(app: FastAPI):
     app.state.database = database
     app.state.catalog = catalog
     app.state.payments = payments
+    app.state.notifications = notifications
     app.state.producer = producer
 
     publisher_task: asyncio.Task[None] | None = None
@@ -116,6 +128,7 @@ async def lifespan(app: FastAPI):
 
         await catalog.close()
         await payments.close()
+        await notifications.close()
         await database.dispose()
 
 
