@@ -1,11 +1,18 @@
+import logging
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from order_service.application.ports.catalog import CatalogClient
+from order_service.application.ports.notifications import (
+    NotificationClient,
+    NotificationServiceError,
+)
 from order_service.application.ports.payments import PaymentClient, PaymentServiceError
 from order_service.application.ports.uow import UnitOfWork
 from order_service.domain.entities import Order, OrderStatus
 from order_service.domain.exceptions import InvalidOrderError
+
+logger = logging.getLogger(__name__)
 
 
 class CreateOrder:
@@ -16,11 +23,13 @@ class CreateOrder:
         uow: UnitOfWork,
         catalog: CatalogClient,
         payments: PaymentClient,
+        notifications: NotificationClient,
         callback_url: str,
     ) -> None:
         self._uow = uow
         self._catalog = catalog
         self._payments = payments
+        self._notifications = notifications
         self._callback_url = callback_url
 
     async def execute(
@@ -76,5 +85,24 @@ class CreateOrder:
         async with self._uow() as uow:
             await uow.orders.add(order)
             await uow.commit()
+
+        try:
+            if order.status == OrderStatus.NEW:
+                await self._notifications.send_notification(
+                    message="Ваш заказ создан и ожидает оплаты",
+                    reference_id=order.id,
+                    idempotency_key=f"{order.idempotency_key}:NEW",
+                )
+            elif order.status == OrderStatus.CANCELLED:
+                await self._notifications.send_notification(
+                    message="Ваш заказ отменен. Причина: Payment failed",
+                    reference_id=order.id,
+                    idempotency_key=f"{order.idempotency_key}:CANCELLED",
+                )
+        except NotificationServiceError:
+            logger.exception(
+                "Не удалось отправить уведомление об изменении статуса заказа.",
+                extra={"order_id": str(order.id)},
+            )
 
         return order
