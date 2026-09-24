@@ -33,6 +33,7 @@ from order_service.application.ports.catalog import (
     CatalogItemNotFoundError,
 )
 from order_service.application.ports.inbox import InboxEvent
+from order_service.application.ports.notifications import NotificationServiceError
 from order_service.application.ports.outbox import OutboxEvent
 from order_service.application.ports.payments import Payment, PaymentServiceError
 from order_service.application.ports.repositories import OrderRepository
@@ -42,6 +43,7 @@ from order_service.fastapi import create_app
 from order_service.presentation.api.dependencies import (
     get_catalog_client,
     get_create_order,
+    get_notifications_client,
     get_payments_client,
     get_unit_of_work,
 )
@@ -138,6 +140,31 @@ class FakeInboxRepository:
     async def add(self, event: InboxEvent) -> None:
         """Добавить обработанное событие."""
         self.events.append(event)
+
+
+class FakeNotificationsClient:
+    """In-memory клиент Notifications Service для тестов."""
+
+    def __init__(self) -> None:
+        self.notifications: list[tuple[str, UUID, str]] = []
+        self.should_fail = False
+
+    async def send_notification(
+        self,
+        message: str,
+        reference_id: UUID,
+        idempotency_key: str,
+    ) -> None:
+        """Отправить тестовое уведомление."""
+
+        if self.should_fail:
+            raise NotificationServiceError(
+                "Ошибка Notifications Service.",
+            )
+
+        self.notifications.append(
+            (message, reference_id, idempotency_key),
+        )
 
 
 class FakeUnitOfWork:
@@ -254,6 +281,7 @@ class FakeProcessShippingEvent:
         self,
         order_id: UUID,
         event_type: str,
+        reason: str | None = None,
     ) -> None:
         """Сохранить полученное событие."""
         self.events.append((order_id, event_type))
@@ -301,6 +329,13 @@ def payments() -> FakePaymentsClient:
 
 
 @pytest.fixture
+def notifications() -> FakeNotificationsClient:
+    """Предоставить тестовый клиент Notifications Service."""
+
+    return FakeNotificationsClient()
+
+
+@pytest.fixture
 def message_broker() -> FakeMessageBroker:
     """Предоставить тестовый брокер сообщений."""
     return FakeMessageBroker()
@@ -318,16 +353,19 @@ def configured_app(
     uow: FakeUnitOfWork,
     catalog: FakeCatalogClient,
     payments: FakePaymentsClient,
+    notifications: FakeNotificationsClient,
 ) -> FastAPI:
     """Настроить приложение с тестовыми зависимостями."""
 
     app.dependency_overrides[get_unit_of_work] = lambda: uow
     app.dependency_overrides[get_catalog_client] = lambda: catalog
     app.dependency_overrides[get_payments_client] = lambda: payments
+    app.dependency_overrides[get_notifications_client] = lambda: notifications
     app.dependency_overrides[get_create_order] = lambda: CreateOrder(
         uow=uow,
         catalog=catalog,
         payments=payments,
+        notifications=notifications,
         callback_url=TEST_CALLBACK_URL,
     )
 
