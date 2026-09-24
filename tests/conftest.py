@@ -11,6 +11,9 @@ os.environ.update(
         "CAPASHINO_BASE_URL": "http://test",
         "CAPASHINO_API_KEY": "test",
         "CALLBACK_URL": "http://test/api/orders/payment-callback",
+        "KAFKA_BOOTSTRAP_SERVERS": "localhost:9092",
+        "ORDER_EVENTS_TOPIC": "student_system-order.events",
+        "SHIPMENT_EVENTS_TOPIC": "student_system-shipment.events",
     },
 )
 
@@ -29,6 +32,8 @@ from order_service.application.ports.catalog import (
     CatalogItem,
     CatalogItemNotFoundError,
 )
+from order_service.application.ports.inbox import InboxEvent
+from order_service.application.ports.outbox import OutboxEvent
 from order_service.application.ports.payments import Payment, PaymentServiceError
 from order_service.application.ports.repositories import OrderRepository
 from order_service.application.usecases.create_order import CreateOrder
@@ -81,11 +86,67 @@ class FakeOrderRepository:
         self._orders[order.id] = order
 
 
+class FakeOutboxRepository:
+    """In-memory репозиторий Outbox для тестов."""
+
+    def __init__(self) -> None:
+        self.events: list[OutboxEvent] = []
+
+    async def add(self, event: OutboxEvent) -> None:
+        """Добавить событие в Outbox."""
+
+        self.events.append(event)
+
+    async def get_unpublished(self) -> list[OutboxEvent]:
+        """Получить неопубликованные события."""
+
+        return [event for event in self.events if not event.published]
+
+    async def mark_as_published(self, event_id: UUID) -> None:
+        """Отметить событие как опубликованное."""
+
+        for index, event in enumerate(self.events):
+            if event.id == event_id:
+                self.events[index] = OutboxEvent(
+                    id=event.id,
+                    order_id=event.order_id,
+                    event_type=event.event_type,
+                    payload=event.payload,
+                    published=True,
+                    created_at=event.created_at,
+                )
+                return
+
+
+class FakeInboxRepository:
+    """In-memory репозиторий Inbox для тестов."""
+
+    def __init__(self) -> None:
+        self.events: list[InboxEvent] = []
+
+    async def exists(
+        self,
+        order_id: UUID,
+        event_type: str,
+    ) -> bool:
+        """Проверить, было ли событие обработано."""
+        return any(
+            event.order_id == order_id and event.event_type == event_type
+            for event in self.events
+        )
+
+    async def add(self, event: InboxEvent) -> None:
+        """Добавить обработанное событие."""
+        self.events.append(event)
+
+
 class FakeUnitOfWork:
     """In-memory фабрика единиц работы для тестов."""
 
     def __init__(self) -> None:
         self.repository = FakeOrderRepository()
+        self.outbox_repository = FakeOutboxRepository()
+        self.inbox_repository = FakeInboxRepository()
 
     @asynccontextmanager
     async def __call__(
@@ -100,6 +161,17 @@ class FakeUnitOfWork:
         """Получить репозиторий заказов."""
 
         return self.repository
+
+    @property
+    def outbox(self) -> FakeOutboxRepository:
+        """Получить тестовый репозиторий Outbox."""
+
+        return self.outbox_repository
+
+    @property
+    def inbox(self) -> FakeInboxRepository:
+        """Получить тестовый репозиторий Inbox."""
+        return self.inbox_repository
 
     async def commit(self) -> None:
         """Зафиксировать изменения."""
@@ -153,6 +225,40 @@ class FakePaymentsClient:
         return payment
 
 
+class FakeMessageBroker:
+    """In-memory брокер сообщений для тестов."""
+
+    def __init__(self) -> None:
+        self.messages: list[tuple[str, str]] = []
+        self.should_fail = False
+
+    async def publish(
+        self,
+        topic: str,
+        message: str,
+    ) -> None:
+        """Опубликовать тестовое сообщение."""
+        if self.should_fail:
+            raise RuntimeError("Kafka недоступна.")
+
+        self.messages.append((topic, message))
+
+
+class FakeProcessShippingEvent:
+    """Тестовый сценарий обработки событий Shipping."""
+
+    def __init__(self) -> None:
+        self.events: list[tuple[UUID, str]] = []
+
+    async def execute(
+        self,
+        order_id: UUID,
+        event_type: str,
+    ) -> None:
+        """Сохранить полученное событие."""
+        self.events.append((order_id, event_type))
+
+
 @pytest.fixture
 def app() -> FastAPI:
     """Создать FastAPI-приложение для тестов."""
@@ -192,6 +298,18 @@ def payments() -> FakePaymentsClient:
     """Предоставить тестовый клиент Payments Service."""
 
     return FakePaymentsClient()
+
+
+@pytest.fixture
+def message_broker() -> FakeMessageBroker:
+    """Предоставить тестовый брокер сообщений."""
+    return FakeMessageBroker()
+
+
+@pytest.fixture
+def process_shipping_event() -> FakeProcessShippingEvent:
+    """Предоставить тестовый сценарий обработки Shipping."""
+    return FakeProcessShippingEvent()
 
 
 @pytest.fixture
