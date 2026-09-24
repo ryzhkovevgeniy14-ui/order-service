@@ -1,8 +1,14 @@
+import json
 from datetime import UTC, datetime
+from uuid import uuid4
 
-from order_service.application.ports.payments import PaymentCallback, PaymentStatus
+from order_service.application.ports.outbox import OutboxEvent
+from order_service.application.ports.payments import (
+    PaymentCallback,
+    PaymentStatus,
+)
 from order_service.application.ports.uow import UnitOfWork
-from order_service.domain.entities import OrderStatus
+from order_service.domain.entities import Order, OrderStatus
 from order_service.domain.exceptions import (
     InvalidStatusTransitionError,
     OrderNotFoundError,
@@ -16,8 +22,6 @@ class ProcessPaymentCallback:
         self._uow = uow
 
     async def execute(self, callback: PaymentCallback) -> None:
-        """Обработать результат платежа."""
-
         async with self._uow() as uow:
             order = await uow.orders.get_by_id(callback.order_id)
 
@@ -33,7 +37,7 @@ class ProcessPaymentCallback:
                         "Недопустимый переход статуса заказа.",
                     )
 
-                order.status = OrderStatus.PAID
+                event_type = "order.paid"
 
             elif callback.status == PaymentStatus.FAILED:
                 if order.status == OrderStatus.CANCELLED:
@@ -44,9 +48,54 @@ class ProcessPaymentCallback:
                         "Недопустимый переход статуса заказа.",
                     )
 
-                order.status = OrderStatus.CANCELLED
+                event_type = "order.cancelled"
 
-            order.updated_at = datetime.now(UTC)
+            else:
+                return
+
+            now = datetime.now(UTC)
+            order.status = (
+                OrderStatus.PAID
+                if callback.status == PaymentStatus.SUCCEEDED
+                else OrderStatus.CANCELLED
+            )
+            order.updated_at = now
 
             await uow.orders.update(order)
+            await uow.outbox.add(
+                self._create_outbox_event(
+                    order=order,
+                    event_type=event_type,
+                    created_at=now,
+                ),
+            )
             await uow.commit()
+
+    @staticmethod
+    def _create_outbox_event(
+        order: Order,
+        event_type: str,
+        created_at: datetime,
+    ) -> OutboxEvent:
+        """Создать событие Outbox для изменения статуса заказа."""
+
+        payload = {
+            "event_type": event_type,
+            "order_id": str(order.id),
+            "item_id": str(order.item_id),
+            "quantity": order.quantity,
+        }
+
+        if event_type == "order.paid":
+            payload["idempotency_key"] = order.idempotency_key
+        else:
+            payload["reason"] = "Payment failed"
+
+        return OutboxEvent(
+            id=uuid4(),
+            order_id=order.id,
+            event_type=event_type,
+            payload=json.dumps(payload),
+            published=False,
+            created_at=created_at,
+        )
