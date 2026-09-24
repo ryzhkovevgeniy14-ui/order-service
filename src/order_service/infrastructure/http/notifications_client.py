@@ -46,7 +46,7 @@ class HttpNotificationsClient:
             response.raise_for_status()
         except httpx.HTTPError as exc:
             raise NotificationServiceError(
-                "Ошибка при обращении к Notifications Service.",
+                f"Notifications Service: {response.status_code} {response.text}",
             ) from exc
 
     async def close(self) -> None:
