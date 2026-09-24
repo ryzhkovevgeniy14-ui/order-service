@@ -54,6 +54,7 @@ class KafkaConsumer:
             await self._process_shipping_event.execute(
                 order_id=UUID(payload["order_id"]),
                 event_type=payload["event_type"],
+                reason=payload.get("reason"),
             )
         except (json.JSONDecodeError, KeyError, ValueError) as error:
             logger.error("Ошибка обработки Kafka-сообщения: %s", error)
