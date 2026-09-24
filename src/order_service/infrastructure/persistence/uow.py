@@ -5,7 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from order_service.application.ports.uow import UnitOfWorkImplementation
 from order_service.infrastructure.persistence.repositories import (
+    SqlAlchemyInboxRepository,
     SqlAlchemyOrderRepository,
+    SqlAlchemyOutboxRepository,
 )
 
 
@@ -39,12 +41,26 @@ class _UnitOfWorkImplementation:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
         self._orders = SqlAlchemyOrderRepository(session)
+        self._outbox = SqlAlchemyOutboxRepository(session)
+        self._inbox = SqlAlchemyInboxRepository(session)
 
     @property
     def orders(self) -> SqlAlchemyOrderRepository:
         """Получить репозиторий заказов."""
 
         return self._orders
+
+    @property
+    def outbox(self) -> SqlAlchemyOutboxRepository:
+        """Получить репозиторий исходящих событий."""
+
+        return self._outbox
+
+    @property
+    def inbox(self) -> SqlAlchemyInboxRepository:
+        """Получить репозиторий входящих событий."""
+
+        return self._inbox
 
     async def commit(self) -> None:
         """Зафиксировать текущую транзакцию."""
