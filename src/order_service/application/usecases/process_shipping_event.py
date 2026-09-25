@@ -76,13 +76,13 @@ class ProcessShippingEvent:
         try:
             if order.status == OrderStatus.SHIPPED:
                 await self._notifications.send_notification(
-                    message="Ваш заказ отправлен в доставку",
+                    message="SHIPPED: Ваш заказ отправлен в доставку",
                     reference_id=order.id,
                     idempotency_key=f"{order.idempotency_key}:SHIPPED",
                 )
             elif order.status == OrderStatus.CANCELLED:
                 await self._notifications.send_notification(
-                    message=f"Ваш заказ отменен. Причина: {reason}",
+                    message=f"CANCELLED: Ваш заказ отменен. Причина: {reason}",
                     reference_id=order.id,
                     idempotency_key=f"{order.idempotency_key}:CANCELLED",
                 )

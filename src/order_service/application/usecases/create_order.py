@@ -89,13 +89,13 @@ class CreateOrder:
         try:
             if order.status == OrderStatus.NEW:
                 await self._notifications.send_notification(
-                    message="Ваш заказ создан и ожидает оплаты",
+                    message="NEW: Ваш заказ создан и ожидает оплаты",
                     reference_id=order.id,
                     idempotency_key=f"{order.idempotency_key}:NEW",
                 )
             elif order.status == OrderStatus.CANCELLED:
                 await self._notifications.send_notification(
-                    message="Ваш заказ отменен. Причина: Payment failed",
+                    message="CANCELLED: Ваш заказ отменен. Причина: Payment failed",
                     reference_id=order.id,
                     idempotency_key=f"{order.idempotency_key}:CANCELLED",
                 )
