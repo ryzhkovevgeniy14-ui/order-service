@@ -24,6 +24,9 @@ class UnitOfWorkImplementation(Protocol):
     async def commit(self) -> None:
         """Зафиксировать текущую транзакцию."""
 
+    async def rollback(self) -> None:
+        """Откатить текущую транзакцию."""
+
 
 class UnitOfWork(Protocol):
     """Интерфейс фабрики единиц работы."""
