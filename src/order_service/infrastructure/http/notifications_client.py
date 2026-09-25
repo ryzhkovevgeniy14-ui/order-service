@@ -1,3 +1,4 @@
+import asyncio
 from urllib.parse import urljoin
 from uuid import UUID
 
@@ -33,21 +34,34 @@ class HttpNotificationsClient:
             "api/notifications",
         )
 
-        try:
-            response = await self._client.post(
-                url,
-                headers={"X-API-Key": self._api_key},
-                json={
-                    "message": message,
-                    "reference_id": str(reference_id),
-                    "idempotency_key": idempotency_key,
-                },
-            )
-            response.raise_for_status()
-        except httpx.HTTPError as exc:
-            raise NotificationServiceError(
-                f"Notifications Service: {response.status_code} {response.text}",
-            ) from exc
+        for attempt in range(3):
+            try:
+                response = await self._client.post(
+                    url,
+                    headers={"X-API-Key": self._api_key},
+                    json={
+                        "message": message,
+                        "reference_id": str(reference_id),
+                        "idempotency_key": idempotency_key,
+                    },
+                )
+
+                if response.status_code < 500:
+                    response.raise_for_status()
+                    return
+
+            except httpx.HTTPError as exc:
+                if attempt == 2:
+                    raise NotificationServiceError(
+                        "Ошибка при обращении к Notifications Service.",
+                    ) from exc
+
+            if attempt < 2:
+                await asyncio.sleep(0.5 * (2**attempt))
+
+        raise NotificationServiceError(
+            "Notifications Service вернул ошибку после 3 попыток.",
+        )
 
     async def close(self) -> None:
         """Закрыть HTTP-клиент."""
