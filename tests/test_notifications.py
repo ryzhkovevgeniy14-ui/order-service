@@ -32,7 +32,7 @@ async def test_create_order_sends_new_notification(
 
     assert notifications.notifications == [
         (
-            "Ваш заказ создан и ожидает оплаты",
+            "NEW: Ваш заказ создан и ожидает оплаты",
             order_id,
             "test-notification-new-key:NEW",
         ),
@@ -76,12 +76,12 @@ async def test_payment_callback_sends_paid_notification(
 
     assert notifications.notifications == [
         (
-            "Ваш заказ создан и ожидает оплаты",
+            "NEW: Ваш заказ создан и ожидает оплаты",
             order_id,
             "test-notification-paid-key:NEW",
         ),
         (
-            "Ваш заказ успешно оплачен и готов к отправке",
+            "PAID: Ваш заказ успешно оплачен и готов к отправке",
             order_id,
             "test-notification-paid-key:PAID",
         ),
@@ -123,12 +123,12 @@ async def test_shipping_event_sends_shipped_notification(
 
     assert notifications.notifications == [
         (
-            "Ваш заказ создан и ожидает оплаты",
+            "NEW: Ваш заказ создан и ожидает оплаты",
             order_id,
             "test-notification-shipped-key:NEW",
         ),
         (
-            "Ваш заказ отправлен в доставку",
+            "SHIPPED: Ваш заказ отправлен в доставку",
             order_id,
             "test-notification-shipped-key:SHIPPED",
         ),
@@ -172,12 +172,12 @@ async def test_payment_callback_sends_cancelled_notification(
 
     assert notifications.notifications == [
         (
-            "Ваш заказ создан и ожидает оплаты",
+            "NEW: Ваш заказ создан и ожидает оплаты",
             order_id,
             "test-notification-cancelled-key:NEW",
         ),
         (
-            "Ваш заказ отменен. Причина: Payment failed",
+            "CANCELLED: Ваш заказ отменен. Причина: Payment failed",
             order_id,
             "test-notification-cancelled-key:CANCELLED",
         ),
@@ -228,12 +228,12 @@ async def test_payment_callback_does_not_duplicate_notification(
 
     assert notifications.notifications == [
         (
-            "Ваш заказ создан и ожидает оплаты",
+            "NEW: Ваш заказ создан и ожидает оплаты",
             order_id,
             "test-notification-idempotency-key:NEW",
         ),
         (
-            "Ваш заказ успешно оплачен и готов к отправке",
+            "PAID: Ваш заказ успешно оплачен и готов к отправке",
             order_id,
             "test-notification-idempotency-key:PAID",
         ),
@@ -304,12 +304,12 @@ async def test_shipping_event_sends_cancelled_notification_with_reason(
 
     assert notifications.notifications == [
         (
-            "Ваш заказ создан и ожидает оплаты",
+            "NEW: Ваш заказ создан и ожидает оплаты",
             order_id,
             "test-notification-shipping-cancelled-key:NEW",
         ),
         (
-            "Ваш заказ отменен. Причина: Insufficient stock",
+            "CANCELLED: Ваш заказ отменен. Причина: Insufficient stock",
             order_id,
             "test-notification-shipping-cancelled-key:CANCELLED",
         ),
