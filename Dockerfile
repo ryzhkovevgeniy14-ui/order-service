@@ -8,6 +8,7 @@ WORKDIR /app
 COPY --chown=appuser:appuser pyproject.toml uv.lock README.md ./
 COPY --chown=appuser:appuser src ./src
 COPY --chown=appuser:appuser bin ./bin
+COPY --chown=appuser:appuser run.sh ./run.sh
 COPY --chown=appuser:appuser alembic.ini ./
 COPY --chown=appuser:appuser alembic ./alembic
 
@@ -20,4 +21,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "order_service.fastapi:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["bash", "./run.sh"]
