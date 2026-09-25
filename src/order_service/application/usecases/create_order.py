@@ -2,6 +2,8 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from sqlalchemy.exc import IntegrityError
+
 from order_service.application.ports.catalog import CatalogClient
 from order_service.application.ports.notifications import (
     NotificationClient,
@@ -83,8 +85,19 @@ class CreateOrder:
             order.status = OrderStatus.CANCELLED
 
         async with self._uow() as uow:
-            await uow.orders.add(order)
-            await uow.commit()
+            try:
+                await uow.orders.add(order)
+                await uow.commit()
+            except IntegrityError:
+                await uow.rollback()
+
+                existing_order = await uow.orders.get_by_idempotency_key(
+                    idempotency_key,
+                )
+                if existing_order is None:
+                    raise
+
+                return existing_order
 
         try:
             if order.status == OrderStatus.NEW:
