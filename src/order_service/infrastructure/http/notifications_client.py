@@ -51,19 +51,17 @@ class HttpNotificationsClient:
                         "Ошибка при обращении к Notifications Service.",
                     ) from exc
             else:
-                if response.status_code < 400:
+                if response.status_code == 201:
                     return
 
                 if response.status_code < 500:
                     raise NotificationServiceError(
-                        f"Notifications Service: "
-                        f"{response.status_code} {response.text}",
+                        "Notifications Service вернул ошибку клиента.",
                     )
 
                 if attempt == 2:
                     raise NotificationServiceError(
-                        f"Notifications Service: "
-                        f"{response.status_code} {response.text}",
+                        "Notifications Service временно недоступен.",
                     )
 
             if attempt < 2:
@@ -71,5 +69,4 @@ class HttpNotificationsClient:
 
     async def close(self) -> None:
         """Закрыть HTTP-клиент."""
-
         await self._client.aclose()
