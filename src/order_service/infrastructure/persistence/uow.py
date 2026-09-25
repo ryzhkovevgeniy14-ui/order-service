@@ -66,3 +66,8 @@ class _UnitOfWorkImplementation:
         """Зафиксировать текущую транзакцию."""
 
         await self._session.commit()
+
+    async def rollback(self) -> None:
+        """Откатить текущую транзакцию."""
+
+        await self._session.rollback()
