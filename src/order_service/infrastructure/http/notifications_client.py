@@ -45,23 +45,29 @@ class HttpNotificationsClient:
                         "idempotency_key": idempotency_key,
                     },
                 )
-
-                if response.status_code < 500:
-                    response.raise_for_status()
-                    return
-
             except httpx.HTTPError as exc:
                 if attempt == 2:
                     raise NotificationServiceError(
                         "Ошибка при обращении к Notifications Service.",
                     ) from exc
+            else:
+                if response.status_code < 400:
+                    return
+
+                if response.status_code < 500:
+                    raise NotificationServiceError(
+                        f"Notifications Service: "
+                        f"{response.status_code} {response.text}",
+                    )
+
+                if attempt == 2:
+                    raise NotificationServiceError(
+                        f"Notifications Service: "
+                        f"{response.status_code} {response.text}",
+                    )
 
             if attempt < 2:
                 await asyncio.sleep(0.5 * (2**attempt))
-
-        raise NotificationServiceError(
-            "Notifications Service вернул ошибку после 3 попыток.",
-        )
 
     async def close(self) -> None:
         """Закрыть HTTP-клиент."""
