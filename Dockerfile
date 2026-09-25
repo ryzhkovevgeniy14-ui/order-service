@@ -7,6 +7,7 @@ WORKDIR /app
 
 COPY --chown=appuser:appuser pyproject.toml uv.lock README.md ./
 COPY --chown=appuser:appuser src ./src
+COPY --chown=appuser:appuser bin ./bin
 COPY --chown=appuser:appuser alembic.ini ./
 COPY --chown=appuser:appuser alembic ./alembic
 
