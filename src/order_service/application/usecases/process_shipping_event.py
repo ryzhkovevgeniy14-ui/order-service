@@ -9,10 +9,7 @@ from order_service.application.ports.notifications import (
 )
 from order_service.application.ports.uow import UnitOfWork
 from order_service.domain.entities import OrderStatus
-from order_service.domain.exceptions import (
-    InvalidStatusTransitionError,
-    OrderNotFoundError,
-)
+from order_service.domain.exceptions import InvalidStatusTransitionError
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +38,18 @@ class ProcessShippingEvent:
             order = await uow.orders.get_by_id(order_id)
 
             if order is None:
-                raise OrderNotFoundError("Заказ не найден.")
+                now = datetime.now(UTC)
+
+                await uow.inbox.add(
+                    InboxEvent(
+                        id=uuid4(),
+                        order_id=order_id,
+                        event_type=event_type,
+                        created_at=now,
+                    ),
+                )
+                await uow.commit()
+                return
 
             if event_type == "order.shipped":
                 new_status = OrderStatus.SHIPPED
