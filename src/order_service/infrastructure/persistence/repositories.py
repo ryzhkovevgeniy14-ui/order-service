@@ -117,7 +117,8 @@ class SqlAlchemyOutboxRepository:
         result = await self._session.execute(
             select(OutboxEventModel)
             .where(OutboxEventModel.published.is_(False))
-            .order_by(OutboxEventModel.created_at),
+            .order_by(OutboxEventModel.created_at)
+            .with_for_update(skip_locked=True),
         )
 
         return [self._to_domain(model) for model in result.scalars()]
